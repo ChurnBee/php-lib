@@ -71,11 +71,11 @@ class CurlUtil
     private $timeOut;
 
     /**
-     * @param $method
-     * @param $url
+     * @param       $method
+     * @param       $url
      * @param array $headers
      */
-    public function __construct($method, $url,  $headers = null)
+    public function __construct($method, $url, $headers = null)
     {
         $this->method = $method;
         $this->url = $url;

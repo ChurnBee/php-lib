@@ -2,38 +2,39 @@
 /**
  * Created by Miljenko Rebernisak <miljenko.rebernisak@prelovac.com>.
  * Version: 1.0.0
-  */
+ */
 
 namespace ChurnBee\Library;
 
-class CBConf {
+class CBConf
+{
 
     /**
      * Your access token for comunication
      */
-    private $accessToken="";
+    private $accessToken = "";
 
     /**
      * Base url of api
      */
-    private $apiUrl="https://api.churnbee.com/v1/";
+    private $apiUrl = "https://api.churnbee.com/v1/";
 
     /**
      * Maximum time out for curl connection
      */
-    private $curlTimeout=3;
+    private $curlTimeout = 3;
 
 
     /**
      * Enable logging requests to file
      */
-    private $debug=false;
+    private $debug = false;
 
     /**
      * Name and path of debuging file
      */
 
-    private  $debugFile="cb.log";
+    private $debugFile = "cb.log";
 
 
     /**
@@ -42,7 +43,7 @@ class CBConf {
      *
      */
 
-    private $parallel=false;
+    private $parallel = false;
 
     /**
      * Three modes
@@ -51,27 +52,26 @@ class CBConf {
      * -callback, user function will be called
      */
 
-    private $errorHandling=self::E_SILENT;
+    private $errorHandling = self::E_SILENT;
 
 
     /**
      * Used in parallel mode. Maximum time to wait for process to finish. Set it to higher than curl time out.
      * Value is micro seconds
      */
-    private  $streamTimeout=4000000;
+    private $streamTimeout = 4000000;
 
     /**
      * When set to true after calling event request will me performed immediately.
      * If you set to false, explicit call to flush() is needed
      */
-    private $autoFlush=true;
-
+    private $autoFlush = true;
 
 
     /**
      * Set path to php
      */
-    private $phpPath="php";
+    private $phpPath = "php";
 
     /*
      * @var callback object
@@ -86,20 +86,20 @@ class CBConf {
     /**
      * Max read buffer from stream
      */
-    private $maxRead=8192;
+    private $maxRead = 8192;
 
 
     #### Do not edit ####
 
-    const E_SILENT=0;
-    const E_EXCEPTION=1;
-    const E_CALLBACK=2;
+    const E_SILENT = 0;
+    const E_EXCEPTION = 1;
+    const E_CALLBACK = 2;
 
-    public function __construct($data=array())
+    public function __construct($data = array())
     {
-        foreach($data as $key=>$value){
-            if(property_exists($this,$key)){
-                $this->$key=$value;
+        foreach ($data as $key => $value) {
+            if (property_exists($this, $key)) {
+                $this->$key = $value;
             }
         }
     }
@@ -312,9 +312,6 @@ class CBConf {
     {
         return $this->callObj;
     }
-
-
-
 
 
 }
