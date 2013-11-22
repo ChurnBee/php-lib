@@ -1,0 +1,21 @@
+{
+    "name": "ChurnBee/php-lib",
+    "type": "library",
+    "description": "A PHP 5.3 library for sending events to the churnbee.com service.",
+    "keywords": [ "logging"],
+    "homepage": "https://churnbee.com",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "ChurnBee Team",
+            "email": "hi@churnbee.com"
+        }
+    ],
+
+    "require": {
+        "php": ">=5.3.1"
+    },
+    "autoload": {
+        "psr-0": { "ChurnBee\\Library": "" }
+    }
+}
