@@ -43,6 +43,7 @@ require_once("ChurnBee/Library/ChurnBee.php");
 
 Basic Usage Example
 ===================
+Full event list and their arguments can be found [here](https://churnbee.com/docs)
 
 ```php
 <?php
