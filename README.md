@@ -49,9 +49,7 @@ Basic Usage Example
 require_once 'vendor/autoload.php';
 $options = array("accessToken"=>"change_me");
 
-$cb=new ChurnBee();
-
-$cb = new ChurnBee\Library\ChurnBee($apiKey, $options);
+$cb = new ChurnBee\Library\ChurnBee($options);
 
 // Send registration event
 $cb->register("MyUserId","MyPlan");
