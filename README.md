@@ -14,43 +14,46 @@ This module has no external dependencies.
 We recommend installing this package with [Composer](http://getcomposer.org/).
 Add the following dependencies to your projects composer.json file:
 
-```json
+```javascript
 
     "require": {
         "churnbee/php-lib": "dev-master"
     }
 ```
-### Install Composer ###
+Then, on the command line:
 
-Run in your project root:
-
-```
+``` bash
 curl -s http://getcomposer.org/installer | php
-```
-
-### Install Dependencies ###
-
-Run in your project root:
-
-```
 php composer.phar install
 ```
 
-### Require Autoloader ###
+Use the generated `vendor/autoload.php` file to autoload the library classes.
 
-You can autoload all dependencies by adding this to your code:
-```
-require 'vendor/autoload.php';
-```
 
 ## Installing without Composer ##
 
 Place the ChurnBee files in the `include_path` as specified in your `php.ini` file or place it in the same directory as your PHP scripts.
 Alternatively include all files:
 ````
-include_once("ChurnBee/Library/CBConf.php");
-include_once("ChurnBee/Library/ChurnBeeException.php");
-include_once("ChurnBee/Library/CurlUtil.php");
-include_once("ChurnBee/Library/ChurnBee.php");
+require_once("ChurnBee/Library/CBConf.php");
+require_once("ChurnBee/Library/ChurnBeeException.php");
+require_once("ChurnBee/Library/CurlUtil.php");
+require_once("ChurnBee/Library/ChurnBee.php");
 ````
 
+Basic Usage Example
+===================
+
+```php
+<?php
+require_once 'vendor/autoload.php';
+$options = array("accessToken"=>"change_me");
+
+$cb=new ChurnBee();
+
+$cb = new ChurnBee\Library\ChurnBee($apiKey, $options);
+
+// Send registration event
+$cb->register("MyUserId","MyPlan");
+
+```

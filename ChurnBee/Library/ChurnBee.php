@@ -1,7 +1,7 @@
 <?php
 /**
  * Created by Miljenko Rebernisak <miljenko.rebernisak@prelovac.com>.
- * Version: 1.0.0
+ * Version: 1.0.1
  */
 
 namespace ChurnBee\Library;
