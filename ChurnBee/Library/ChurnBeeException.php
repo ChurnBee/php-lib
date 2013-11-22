@@ -1,6 +1,6 @@
 <?php
 /**
- * Created by Miljenko Rebernisak <miljenko.rebernisak@prelovac.com>.
+ * Created by Miljenko Rebernisak <miljenko.rebernisak@churnbee.com>.
  * Version: 1.0.0
   */
 
