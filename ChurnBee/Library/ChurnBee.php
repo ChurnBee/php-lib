@@ -130,6 +130,7 @@ class ChurnBee
         # Escape for shell usage.
         $url = escapeshellarg($url);
         $cmd = "curl -X POST -H 'Content-Type: application/json'";
+        $cmd .= '-A "ChurnBee Agent v1.0"';
         $cmd .= " '" . $url . "'";
         $cmd .= " > /dev/null 2>&1 &";
 
