@@ -1,7 +1,7 @@
 ChurnBee php-lib
 =======
 
-ChurnBee php API integration library.
+ChurnBee php API integration library. [Visit official page for more information](https://churnbee.com/)
 
 ## Requirements ##
 
