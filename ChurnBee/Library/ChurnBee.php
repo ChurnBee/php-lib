@@ -1,6 +1,6 @@
 <?php
 /**
- * Created by Miljenko Rebernisak <miljenko.rebernisak@prelovac.com>.
+ * Created by Miljenko Rebernisak <miljenko.rebernisak@churnbee.com>.
  * Version: 1.0.1
  */
 
@@ -19,27 +19,23 @@ if (!function_exists('json_decode')) {
  */
 class ChurnBee
 {
-    /**
-     * @var CBConf configuration object
-     */
-    private $cbconf;
-
-    ######## DO NOT EDIT BELLOW #############
-
-
     const CODE_OK = 200;
     const CODE_NO_CONTENT = 204;
     const CODE_CREATED = 201;
     const CODE_UNAUTHORIZED = 401;
     const CODE_BADREQUEST = 400;
 
+    /**
+     * @var CBConf configuration object
+     */
+    private $cbconf;
 
     /**
      * @var null | array
      */
     private $result = array();
     /**
-     * @var string
+     * @var array
      */
     private $rawResult = array();
     /**
@@ -58,25 +54,14 @@ class ChurnBee
     private $errors = array();
 
     /**
-     * @var int
+     * @var array
      */
     private $statusCode = array();
-
     /**
      * Request queue
      * @var array
      */
-
     private $queue = array();
-
-    /**
-     * Parallel request stuff
-     */
-
-    private $pipes = array();
-    private $process = array();
-    private $streams = array();
-
 
     /**
      *
@@ -84,7 +69,6 @@ class ChurnBee
      */
     public function __construct($data = null)
     {
-
         if (is_array($data)) {
             $this->cbconf = new CBConf($data);
         } elseif ($data instanceof CBConf) {
@@ -92,13 +76,13 @@ class ChurnBee
         } else {
             $this->cbconf = new CBConf();
         }
-
-
     }
 
     /**
      * Static constructor / factory
+     *
      * @param array | CBConf $data
+     *
      * @return ChurnBee
      *
      */
@@ -111,167 +95,83 @@ class ChurnBee
 
     /**
      * Perform request and populate data from response
+     *
      * @throws ChurnBeeException
      */
     public function flush()
     {
-
         if ($this->cbconf->getParallel() == false) {
             foreach ($this->queue as $k => $r) {
-                $r[0] = $this->appendTo($r[0], "accessToken", $this->cbconf->getAccessToken());
-                $curl = new CurlUtil($r[1], $r[0]);
+                $r['url'] = $this->appendTo($r['url'], "accessToken", $this->cbconf->getAccessToken());
+                $curl = new CurlUtil($r['method'], $r['url']);
                 $curl->setTimeOut($this->cbconf->getCurlTimeout());
                 $curl->send();
                 $this->splitHeaderAndResponse($k, $curl->getResult());
                 $this->sentHeaders[$k] = $curl->getSentHeaders();
                 $this->statusCode[$k] = $curl->getStatusCode();
                 $this->addError($k, $curl->getError());
-
             }
             $this->handleErrors();
             $this->debug();
             $this->clearQueue();
-
         } else {
             foreach ($this->queue as $k => $r) {
-                $r[0] = $this->appendTo($r[0], "accessToken", $this->cbconf->getAccessToken());
-                $this->flushAsync($k, $r[1], $r[0]);
+                $r['url'] = $this->appendTo($r['url'], "accessToken", $this->cbconf->getAccessToken());
+                $this->flushAsync($k, $r['method'], $r['url']);
             }
         }
-
     }
 
     /**
-     * Black magic happen hear, don't touch
+     * Asynchronous flush
      */
-    private function flushAsync($k, $method, $url)
+    private function flushAsync($current, $method, $url)
     {
-        //stdin,stdout,stderr
-        $descriptor = array(0 => array("pipe", "r"), 1 => array("pipe", "w"), 2 => array("pipe", "w"));
-        //Open the resource to execute $command
-        $command = $this->cbconf->getPhpPath() . " " . __DIR__ . "/async.php";
-        $this->process[$k] = proc_open($command, $descriptor, $this->pipes[$k], __DIR__);
+        # Escape for shell usage.
+        $url = escapeshellarg($url);
+        $cmd = "curl -X POST -H 'Content-Type: application/json'";
+        $cmd .= " '" . $url . "'";
+        $cmd .= " > /dev/null 2>&1 &";
 
-        if (!is_resource($this->process[$k])) {
-            $this->addError($k, "Can not create new process");
+        exec($cmd, $output, $exit);
 
-            return;
+        if (0 != $exit) {
+            $this->addError($current, $output);
         }
-
-
-        //Set STDOUT and STDERR to non-blocking
-        stream_set_blocking($this->pipes[$k][1], 0);
-        stream_set_blocking($this->pipes[$k][2], 0);
-
-        fwrite($this->pipes[$k][0], $this->cbconf->getCurlTimeout() . "\n");
-        fwrite($this->pipes[$k][0], $method . "\n");
-        fwrite($this->pipes[$k][0], $url . "\n");
-        fclose($this->pipes[$k][0]);
-
-
-    }
-
-    /**
-     * This method should be called in parallel mode to get data.
-     * Typically you want to call this when you finish your processing and page generation
-     */
-    public function finish()
-    {
-
-        if ($this->cbconf->getParallel()) {
-            foreach ($this->queue as $k => $v) {
-                $buffers = array();
-                //stdout,stderr
-                $this->streams[$k] = array(1, 2);
-                $buffers[$k][1] = "";
-                $buffers[$k][2] = "";
-                $code = null;
-
-                $status = proc_get_status($this->process[$k]);
-                if ($status === false) {
-                    $this->addError($k, "Can not get process info");
-                    continue;
-                }
-
-                while (!empty($this->streams[$k])) {
-                    //Check pipes for data
-                    foreach ($this->streams[$k] as $i => $pipe) {
-                        $read = array($this->pipes[$k][$pipe]);
-                        $write = null;
-                        $except = null;
-                        $tv = null;
-                        $utv = $this->cbconf->getStreamTimeout();
-
-                        $n = stream_select($read, $write, $except, $tv, $utv);
-                        $j = 0;
-                        if ($n > 0) {
-                            do {
-                                $str = fgets($this->pipes[$k][$pipe], $this->cbconf->getMaxRead());
-                                if ($j == 0 && $pipe == 1) {
-                                    $this->statusCode[$k] = $str;
-                                } else {
-                                    $buffers[$k][$pipe] .= $str;
-                                }
-
-                                $j++;
-
-                            } while (strlen($str));
-
-                        }
-
-                        unset($this->streams[$k][$i]);
-                    }
-                }
-                // Close all pipes
-                foreach ($this->pipes[$k] as $pipe => $desc) {
-                    if (is_resource($desc)) {
-                        fclose($desc);
-                    }
-                }
-
-                $this->splitHeaderAndResponse($k, $buffers[$k][1]);
-                $this->addError($k, array($buffers[$k][2]));
-            }
-
-            $this->handleErrors();
-            $this->debug();
-            $this->clearQueue();
-        }
-
+        $this->clearQueue();
     }
 
     /**
      * Do error handling
+     *
      * @throws ChurnBeeException
      */
     protected function handleErrors()
     {
-
+        /**
+         * Add errors from json response
+         */
         if (is_array($this->result)) {
             foreach ($this->result as $k => $v) {
-                if ($this->statusCode[$k] != self::CODE_OK && count($this->errors[$k]) == 0) {
-                    if (isset($v->error)) {
-                        $this->addError($k, $v->error);
-                    }
+                if ($this->statusCode[$k] != self::CODE_OK && count($this->errors[$k]) == 0 && isset($v->error)) {
+                    $this->addError($k, $v->error);
                 }
             }
         }
-
+        /**
+         * Check if we need to do callback or throw exception
+         */
         if ($this->cbconf->getErrorHandling() == CBConf::E_EXCEPTION) {
-
             $buffer = "";
             foreach ($this->errors as $k => $v) {
                 if (count($v) > 0) {
                     $buffer .= implode(";", $v);
                 }
             }
-
             if (strlen($buffer) > 0) {
                 throw new ChurnBeeException($buffer);
             }
-
         } elseif ($this->cbconf->getErrorHandling() == CBConf::E_CALLBACK) {
-
             foreach ($this->errors as $k => $v) {
                 if (count($v) > 0) {
                     $this->callUserHandler(
@@ -281,11 +181,8 @@ class ChurnBee
                         $v
                     );
                 }
-
             }
         }
-
-
     }
 
     /**
@@ -296,24 +193,30 @@ class ChurnBee
         $this->queue = array();
     }
 
+    /**
+     * Write down debugging information
+     */
     private function debug()
     {
-
-        if ($this->cbconf->getDebug()) {
+        if ($this->cbconf->getDebug() && $this->cbconf->getParallel() == false) {
             foreach ($this->queue as $k => $r) {
-                if ($this->cbconf->getParallel() == false) {
-                    $this->log("\r\n" . "[SENT REQUEST]\r\n");
-                    $this->log($this->sentHeaders[$k] . "\r\n");
-                }
+                $this->log("\r\n" . "[SENT REQUEST]\r\n");
+                $this->log($this->sentHeaders[$k] . "\r\n");
                 $this->log("[RECEIVED RESPONSE]\r\n");
                 $this->log(implode("\r\n", $this->headers[$k]) . "\r\n");
                 $this->log($this->rawResult[$k]);
             }
-
         }
     }
 
-
+    /**
+     * Method to call user error handler
+     *
+     * @param $statuscode
+     * @param $result
+     * @param $rawresult
+     * @param $errors
+     */
     protected function callUserHandler($statuscode, $result, $rawresult, $errors)
     {
         if ($this->cbconf->getCallObj() != null && $this->cbconf->getCallMethod() != null) {
@@ -328,10 +231,12 @@ class ChurnBee
     }
 
     /**
-     * Append to url
-     * @param $url
-     * @param $key
-     * @param $value
+     * Append key,value to url
+     *
+     * @param string  $url
+     * @param integer $key
+     * @param string  $value
+     *
      * @return string
      */
     protected function  appendTo($url, $key, $value)
@@ -341,7 +246,6 @@ class ChurnBee
         } else {
             $url .= "?";
         }
-
         $url .= $key . "=" . urlencode($value);
 
         return $url;
@@ -349,6 +253,7 @@ class ChurnBee
 
     /**
      * Populate  $rawResult, $result, $headers from curl response
+     *
      * @param $k
      * @param $response
      */
@@ -370,11 +275,11 @@ class ChurnBee
                 $this->addError($k, "Invalid JSON");
             }
         }
-
     }
 
     /**
      * Add error to que for current request
+     *
      * @param $k
      * @param $error
      */
@@ -394,16 +299,19 @@ class ChurnBee
 
     /**
      * Implode key/value array to string, and do url encode
+     *
      * @param $arr
+     *
      * @return string
      */
     protected function implode_encode_assoc($arr)
     {
         $ret_str = "";
-
         $char = "&";
-        foreach ($arr as $k => $v) {
-            $ret_str .= $char . "custom[" . $k . "]=" . urlencode($v);
+        if (is_array($arr)) {
+            foreach ($arr as $k => $v) {
+                $ret_str .= $char . "custom[" . $k . "]=" . urlencode($v);
+            }
         }
 
         return $ret_str;
@@ -411,17 +319,18 @@ class ChurnBee
 
     /**
      * Returns array with headers data
+     *
      * @return array
      */
     public function getHeaders()
     {
-
         return $this->headers;
     }
 
     /**
      * Return object if request succeeded and there
      * was not errors in json output.
+     *
      * @return array
      */
     public function getResult()
@@ -433,12 +342,12 @@ class ChurnBee
      * Return array of errors string.
      * May contain errors from curl and from response
      * eq. Wrong protocol or Supplied id does not exist
+     *
      * @return array
      */
     public function getErrors()
     {
         return $this->errors;
-
     }
 
     /**
@@ -491,14 +400,13 @@ class ChurnBee
         return $this->statusCode;
     }
 
-
     /**
      * Check if there is errors on stack
+     *
      * @return bool
      */
     public function haveErrors()
     {
-
         foreach ($this->errors as $e) {
             if (count($e) > 0) {
                 return true;
@@ -517,11 +425,12 @@ class ChurnBee
         return $this->rawResult;
     }
 
-
     /**
      * Format date to ISO8601 string.
      * Input can be timestamp,\DateTime object or already formatted string
+     *
      * @param $dateTime
+     *
      * @return string
      */
     protected function formatDate($dateTime)
@@ -535,11 +444,9 @@ class ChurnBee
                 $date->setTimestamp($dateTime);
 
                 return $date->format(\DateTime::ISO8601);
-
             } else {
                 return $dateTime;
             }
-
         }
     }
 
@@ -549,28 +456,13 @@ class ChurnBee
      * Plan will be set to "free" if no specified.
      * dateTime is optional and can be timestamp or \DateTime() object
      *
-     * @param string $userId
-     * @param null $plan
-     * @param null $dateTime
-     * @param array $custom
+     * @param string    $userId
+     * @param string    $plan
+     * @param \DateTime $dateTime
+     * @param array     $custom
      */
     public function register($userId, $plan = null, $dateTime = null, $custom = array())
     {
-        $data = array();
-        $data["userId"] = $userId;
-
-        if (!empty($plan)) {
-            $data['plan'] = $plan;
-        }
-
-        if ($dateTime != null) {
-            $data['dateTime'] = $this->formatDate($dateTime);
-        }
-
-        if (is_array($custom) && !empty($custom)) {
-            $data['custom'] = $custom;
-        }
-
         $request = array();
         $url = $this->cbconf->getApiUrl() . "user/" . urlencode($userId) . "/";
         if (!empty($plan)) {
@@ -580,16 +472,13 @@ class ChurnBee
             $url = $this->appendTo($url, "dateTime", $dateTime->format(\DateTime::ISO8601));
         }
         $url .= $this->implode_encode_assoc($custom);
-        $request[0] = $url;
-        $request[1] = CurlUtil::METHOD_GET;
-
-
+        $request['url'] = $url;
+        $request['method'] = CurlUtil::METHOD_GET;
         $this->queue[] = $request;
 
         if ($this->cbconf->getAutoFlush() == true) {
             $this->flush();
         }
-
     }
 
     /**
@@ -597,36 +486,25 @@ class ChurnBee
      * Mandatory field is $userId
      * dateTime is optional and can be timestamp or \DateTime() object
      *
-     * @param string $userId
-     * @param null $dateTime
-     * @param array $custom
+     * @param string    $userId
+     * @param \DateTime $dateTime
+     * @param array     $custom
      */
     public function login($userId, $dateTime = null, $custom = array())
     {
-        $data = array();
-
-        if ($dateTime != null) {
-            $data['dateTime'] = $this->formatDate($dateTime);
-        }
-        if (is_array($custom) && !empty($custom)) {
-            $data['custom'] = $custom;
-        }
         $request = array();
         $url = $this->cbconf->getApiUrl() . "user/" . urlencode($userId) . "/login";
         if (!empty($dateTime)) {
             $url = $this->appendTo($url, "dateTime", $dateTime->format(\DateTime::ISO8601));
         }
         $url .= $this->implode_encode_assoc($custom);
-        $request[0] = $url;
-        $request[1] = CurlUtil::METHOD_GET;
-
-
+        $request['url'] = $url;
+        $request['method'] = CurlUtil::METHOD_GET;
         $this->queue[] = $request;
 
         if ($this->cbconf->getAutoFlush()) {
             $this->flush();
         }
-
     }
 
     /**
@@ -635,26 +513,13 @@ class ChurnBee
      * Reason is optional.
      * dateTime is optional and can be timestamp or \DateTime() object
      *
-     * @param string $userId
-     * @param null $reason
-     * @param null $dateTime
-     * @param array $custom
+     * @param string    $userId
+     * @param string    $reason
+     * @param \DateTime $dateTime
+     * @param array     $custom
      */
     public function cancel($userId, $reason = null, $dateTime = null, $custom = array())
     {
-
-        $data = array();
-
-        if (!empty($reason)) {
-            $data['reason'] = $reason;
-        }
-        if ($dateTime != null) {
-            $data['dateTime'] = $this->formatDate($dateTime);
-        }
-        if (is_array($custom) && !empty($custom)) {
-            $data['custom'] = $custom;
-        }
-
         $request = array();
         $url = $this->cbconf->getApiUrl() . "user/" . urlencode($userId) . "/cancel";
         if (!empty($reason)) {
@@ -664,15 +529,13 @@ class ChurnBee
             $url = $this->appendTo($url, "dateTime", $dateTime->format(\DateTime::ISO8601));
         }
         $url .= $this->implode_encode_assoc($custom);
-        $request[0] = $url;
-        $request[1] = CurlUtil::METHOD_GET;
-
+        $request['url'] = $url;
+        $request['method'] = CurlUtil::METHOD_GET;
         $this->queue[] = $request;
 
         if ($this->cbconf->getAutoFlush()) {
             $this->flush();
         }
-
     }
 
     /**
@@ -680,22 +543,13 @@ class ChurnBee
      * Mandatory field is $userId and $plan
      * dateTime is optional and can be timestamp or \DateTime() object
      *
-     * @param string $userId
-     * @param string $plan
-     * @param null $dateTime
-     * @param array $custom
+     * @param string    $userId
+     * @param string    $plan
+     * @param \DateTime $dateTime
+     * @param array     $custom
      */
     public function changePlan($userId, $plan, $dateTime = null, $custom = array())
     {
-
-        $data = array();
-        $data['plan'] = $plan;
-        if ($dateTime != null) {
-            $data['dateTime'] = $this->formatDate($dateTime);
-        }
-        if (is_array($custom) && !empty($custom)) {
-            $data['custom'] = $custom;
-        }
         $request = array();
         $url = $this->cbconf->getApiUrl() . "user/" . urlencode($userId) . "/changeplan";
         if (!empty($plan)) {
@@ -705,18 +559,14 @@ class ChurnBee
             $url = $this->appendTo($url, "dateTime", $dateTime->format(\DateTime::ISO8601));
         }
         $url .= $this->implode_encode_assoc($custom);
-        $request[0] = $url;
-        $request[1] = CurlUtil::METHOD_GET;
-
-
+        $request['url'] = $url;
+        $request['method'] = CurlUtil::METHOD_GET;
         $this->queue[] = $request;
 
         if ($this->cbconf->getAutoFlush()) {
             $this->flush();
         }
-
     }
-
 
     /**
      * Send charge request to ChurnBee server.
@@ -724,26 +574,15 @@ class ChurnBee
      * dateTime is optional and can be timestamp or \DateTime() object
      * duration is optional and represent number of months that you are charging eg 6,12,24
      *
-     * @param $userId
-     * @param $amount
-     * @param $plan
-     * @param int $duration
-     * @param null $dateTime
-     * @param array $custom
+     * @param string    $userId
+     * @param float     $amount
+     * @param string    $plan
+     * @param int       $duration
+     * @param \DateTime $dateTime
+     * @param array     $custom
      */
     public function charge($userId, $amount, $plan, $duration = 1, $dateTime = null, $custom = array())
     {
-
-        $data = array();
-        $data['amount'] = $amount;
-        $data['plan'] = $plan;
-        $data['duration'] = $duration;
-        if ($dateTime != null) {
-            $data['dateTime'] = $this->formatDate($dateTime);
-        }
-        if (is_array($custom) && !empty($custom)) {
-            $data['custom'] = $custom;
-        }
         $request = array();
         $url = $this->cbconf->getApiUrl() . "user/" . urlencode($userId) . "/charge";
         if (!empty($amount)) {
@@ -759,10 +598,8 @@ class ChurnBee
             $url = $this->appendTo($url, "dateTime", $dateTime->format(\DateTime::ISO8601));
         }
         $url .= $this->implode_encode_assoc($custom);
-        $request[0] = $url;
-        $request[1] = CurlUtil::METHOD_GET;
-
-
+        $request['url'] = $url;
+        $request['method'] = CurlUtil::METHOD_GET;
         $this->queue[] = $request;
 
         if ($this->cbconf->getAutoFlush()) {
@@ -777,26 +614,14 @@ class ChurnBee
      * dateTime is optional and can be timestamp or \DateTime() object
      * duration is optional and represent number of month that you are refunding
      *
-     * @param string $userId
-     * @param float $amount
-     * @param int $duration
-     * @param null $dateTime
-     * @param array $custom
+     * @param string    $userId
+     * @param float     $amount
+     * @param int       $duration
+     * @param \DateTime $dateTime
+     * @param array     $custom
      */
-    public function refund($userId, $amount,$duration = 1, $dateTime = null, $custom = array())
+    public function refund($userId, $amount, $duration = 1, $dateTime = null, $custom = array())
     {
-
-        $data = array();
-        $data['amount'] = $amount;
-        $data['duration'] = $duration;
-
-        if ($dateTime != null) {
-            $data['dateTime'] = $this->formatDate($dateTime);
-        }
-        if (is_array($custom) && !empty($custom)) {
-            $data['custom'] = $custom;
-        }
-
         $request = array();
         $url = $this->cbconf->getApiUrl() . "user/" . urlencode($userId) . "/refund";
         if (!empty($amount)) {
@@ -809,10 +634,8 @@ class ChurnBee
             $url = $this->appendTo($url, "dateTime", $dateTime->format(\DateTime::ISO8601));
         }
         $url .= $this->implode_encode_assoc($custom);
-        $request[0] = $url;
-        $request[1] = CurlUtil::METHOD_GET;
-
-
+        $request['url'] = $url;
+        $request['method'] = CurlUtil::METHOD_GET;
         $this->queue[] = $request;
 
         if ($this->cbconf->getAutoFlush()) {
@@ -827,38 +650,24 @@ class ChurnBee
      * dateTime is optional and can be timestamp or \DateTime() object
      *
      *
-     * @param string $userId
-     * @param null $dateTime
-     * @param array $custom
+     * @param string    $userId
+     * @param \DateTime $dateTime
+     * @param array     $custom
      */
     public function activation($userId, $dateTime = null, $custom = array())
     {
-
-        $data = array();
-
-        if ($dateTime != null) {
-            $data['dateTime'] = $this->formatDate($dateTime);
-        }
-        if (is_array($custom) && !empty($custom)) {
-            $data['custom'] = $custom;
-        }
-
         $request = array();
         $url = $this->cbconf->getApiUrl() . "user/" . urlencode($userId) . "/activation";
         if (!empty($dateTime)) {
             $url = $this->appendTo($url, "dateTime", $dateTime->format(\DateTime::ISO8601));
         }
         $url .= $this->implode_encode_assoc($custom);
-        $request[0] = $url;
-        $request[1] = CurlUtil::METHOD_GET;
-
-
+        $request['url'] = $url;
+        $request['method'] = CurlUtil::METHOD_GET;
         $this->queue[] = $request;
 
         if ($this->cbconf->getAutoFlush()) {
             $this->flush();
         }
     }
-
-
 }
