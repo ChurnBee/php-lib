@@ -1,5 +1,5 @@
 {
-    "name": "ChurnBee/php-lib",
+    "name": "churnbee/php-lib",
     "type": "library",
     "description": "A PHP 5.3 library for sending events to the churnbee.com service.",
     "keywords": [ "logging"],
