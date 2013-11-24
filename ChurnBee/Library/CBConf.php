@@ -1,16 +1,20 @@
 <?php
 /**
  * Created by Miljenko Rebernisak <miljenko.rebernisak@prelovac.com>.
- * Version: 1.0.0
+ * Version: 1.0.1
  */
 
 namespace ChurnBee\Library;
 
+/**
+ * Class CBConf
+ * @package ChurnBee\Library
+ */
 class CBConf
 {
 
     /**
-     * Your access token for comunication
+     * Your access token for communication
      */
     private $accessToken = "";
 
@@ -31,19 +35,15 @@ class CBConf
     private $debug = false;
 
     /**
-     * Name and path of debuging file
+     * Name and path of debugging file
      */
 
     private $debugFile = "cb.log";
 
-
     /**
-     * Use parallel mode of execution. After calling event new process will be opened and execution will be in parallel.
-     * You will need to call finish() at the end of your script.
-     *
+     * Use async mode of execution. You need command shell and unix like system
      */
-
-    private $parallel = false;
+    private $async = false;
 
     /**
      * Three modes
@@ -54,26 +54,13 @@ class CBConf
 
     private $errorHandling = self::E_SILENT;
 
-
-    /**
-     * Used in parallel mode. Maximum time to wait for process to finish. Set it to higher than curl time out.
-     * Value is micro seconds
-     */
-    private $streamTimeout = 4000000;
-
     /**
      * When set to true after calling event request will me performed immediately.
      * If you set to false, explicit call to flush() is needed
      */
     private $autoFlush = true;
 
-
     /**
-     * Set path to php
-     */
-    private $phpPath = "php";
-
-    /*
      * @var callback object
      */
     private $callObj;
@@ -83,18 +70,14 @@ class CBConf
      */
     private $callMethod;
 
-    /**
-     * Max read buffer from stream
-     */
-    private $maxRead = 8192;
-
-
-    #### Do not edit ####
 
     const E_SILENT = 0;
     const E_EXCEPTION = 1;
     const E_CALLBACK = 2;
 
+    /**
+     * @param array $data
+     */
     public function __construct($data = array())
     {
         foreach ($data as $key => $value) {
@@ -154,6 +137,14 @@ class CBConf
     }
 
     /**
+     * @return bool
+     */
+    public function isAutoFlush()
+    {
+        return $this->autoFlush;
+    }
+
+    /**
      * @param mixed $curlTimeout
      */
     public function setCurlTimeout($curlTimeout)
@@ -202,67 +193,27 @@ class CBConf
     }
 
     /**
-     * @param mixed $maxRead
+     * @param mixed $async
      */
-    public function setMaxRead($maxRead)
+    public function setAsync($async)
     {
-        $this->maxRead = $maxRead;
+        $this->async = $async;
     }
 
     /**
      * @return mixed
      */
-    public function getMaxRead()
+    public function getAsync()
     {
-        return $this->maxRead;
+        return $this->async;
     }
 
     /**
-     * @param mixed $parallel
+     * @return bool
      */
-    public function setParallel($parallel)
+    public function isAsync()
     {
-        $this->parallel = $parallel;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getParallel()
-    {
-        return $this->parallel;
-    }
-
-    /**
-     * @param mixed $phpPath
-     */
-    public function setPhpPath($phpPath)
-    {
-        $this->phpPath = $phpPath;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getPhpPath()
-    {
-        return $this->phpPath;
-    }
-
-    /**
-     * @param mixed $streamTimeout
-     */
-    public function setStreamTimeout($streamTimeout)
-    {
-        $this->streamTimeout = $streamTimeout;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getStreamTimeout()
-    {
-        return $this->streamTimeout;
+        return $this->async;
     }
 
     /**

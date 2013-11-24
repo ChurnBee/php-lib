@@ -1,7 +1,7 @@
 <?php
 /**
  * Created by Miljenko Rebernisak <miljenko.rebernisak@churnbee.com>.
- * Version: 1.0.1
+ * Version: 1.0.2
  */
 
 namespace ChurnBee\Library;
@@ -100,7 +100,7 @@ class ChurnBee
      */
     public function flush()
     {
-        if ($this->cbconf->getParallel() == false) {
+        if ($this->cbconf->isAsync() == false) {
             foreach ($this->queue as $k => $r) {
                 $r['url'] = $this->appendTo($r['url'], "accessToken", $this->cbconf->getAccessToken());
                 $curl = new CurlUtil($r['method'], $r['url']);
@@ -129,7 +129,7 @@ class ChurnBee
     {
         # Escape for shell usage.
         $url = escapeshellarg($url);
-        $cmd = "curl -X POST -H 'Content-Type: application/json'";
+        $cmd = "curl -k -H 'Content-Type: application/json'";
         $cmd .= '-A "ChurnBee Agent v1.0"';
         $cmd .= " '" . $url . "'";
         $cmd .= " > /dev/null 2>&1 &";
@@ -199,7 +199,7 @@ class ChurnBee
      */
     private function debug()
     {
-        if ($this->cbconf->getDebug() && $this->cbconf->getParallel() == false) {
+        if ($this->cbconf->getDebug() && $this->cbconf->isAsync() == false) {
             foreach ($this->queue as $k => $r) {
                 $this->log("\r\n" . "[SENT REQUEST]\r\n");
                 $this->log($this->sentHeaders[$k] . "\r\n");
@@ -477,7 +477,7 @@ class ChurnBee
         $request['method'] = CurlUtil::METHOD_GET;
         $this->queue[] = $request;
 
-        if ($this->cbconf->getAutoFlush() == true) {
+        if ($this->cbconf->isAutoFlush() == true) {
             $this->flush();
         }
     }
@@ -503,7 +503,7 @@ class ChurnBee
         $request['method'] = CurlUtil::METHOD_GET;
         $this->queue[] = $request;
 
-        if ($this->cbconf->getAutoFlush()) {
+        if ($this->cbconf->isAutoFlush()) {
             $this->flush();
         }
     }
@@ -534,7 +534,7 @@ class ChurnBee
         $request['method'] = CurlUtil::METHOD_GET;
         $this->queue[] = $request;
 
-        if ($this->cbconf->getAutoFlush()) {
+        if ($this->cbconf->isAutoFlush()) {
             $this->flush();
         }
     }
@@ -564,7 +564,7 @@ class ChurnBee
         $request['method'] = CurlUtil::METHOD_GET;
         $this->queue[] = $request;
 
-        if ($this->cbconf->getAutoFlush()) {
+        if ($this->cbconf->isAutoFlush()) {
             $this->flush();
         }
     }
@@ -603,7 +603,7 @@ class ChurnBee
         $request['method'] = CurlUtil::METHOD_GET;
         $this->queue[] = $request;
 
-        if ($this->cbconf->getAutoFlush()) {
+        if ($this->cbconf->isAutoFlush()) {
             $this->flush();
         }
     }
@@ -639,7 +639,7 @@ class ChurnBee
         $request['method'] = CurlUtil::METHOD_GET;
         $this->queue[] = $request;
 
-        if ($this->cbconf->getAutoFlush()) {
+        if ($this->cbconf->isAutoFlush()) {
             $this->flush();
         }
     }
@@ -667,7 +667,7 @@ class ChurnBee
         $request['method'] = CurlUtil::METHOD_GET;
         $this->queue[] = $request;
 
-        if ($this->cbconf->getAutoFlush()) {
+        if ($this->cbconf->isAutoFlush()) {
             $this->flush();
         }
     }
